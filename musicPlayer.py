@@ -145,4 +145,108 @@ class MediaPanel(wx.Panel):
                 style = wx.OPEN | wx.CHANGE_DIR
                 )
             if dlg.ShowModal() == wx.ID_OK:
+                path = dlg.GetPath()
+                self.currentFolder = os.path.dirname(path)
+                self.loadMusic(path)
+            dlg.Destroy()
+
+#-------------------------------------------------------------------
+
+        def onNext(self, event):
+            """
+            Not implemented
+            """
+            pass
+
+#-------------------------------------------------------------------
+
+        def onPause(self):
+            """
+            Pauses the music
+            """
+            self.mediaPlayer.Pause()
+
+#-------------------------------------------------------------------
+
+        def onPlay(self, event):
+            """
+            Plays the music
+            """
+            if not event.GetIsDown():
+                self.onPause()
+                return
+
+            if not self.mediaPlayer.Play():
+                wx.MessageBox("Unable to Play media : Unsupported format",
+                              "ERROR",
+                              wx.ICON_ERROR | wx.OK)
+            else:
+                self.mediaPlayer.SetInitialSize()
+                self.GetSizer().Layout()
+                self.playbackSlider.SetRange(0, self.mediaPlayer.Length())
+            event.Skip()
+
+#-------------------------------------------------------------------
+
+        def onPrev(self, event):
+            """
+            Not implemented
+            """
+            pass
+
+#-------------------------------------------------------------------
+
+        def onSeek(self, event):
+            """
+            Seeks the media file according to the amount the slider has been adjusted.
+            """
+            offset = self.playbackSlider.GetValue()
+            self.mediaPlayer.Seek(offset)
+
+#-------------------------------------------------------------------
+
+        def onSetVolume(self, event):
+            """
+            Sets the volume of the music player
+            """
+            self.currentVolume = self.volumeCtrl.GetValue()
+            print("Setting volume to %s" %int(self.currentVolume))
+            self.mediaPlayer.setVolume(self.currentColume)
+
+#-------------------------------------------------------------------
+
+        def onStop(self, event):
+            """
+            stops the music and resets the play button
+            """
+            self.mediaPlayer.Stop()
+            self.playPauseBtn.SetToggle(False)
+
+#-------------------------------------------------------------------
+
+        def onTimer(self, event):
+            """
+            Keeps the player slider updated
+            """
+            offset = self.mediaPlayer.Tell()
+            self.playbackSlider.SetValue(offset)
+
+####################################################################
+
+class MediaFrame(wx.Frame):
+
+    def __init__(self):
+        wx.Frame.__init__(self, None, wx.ID_ANY, "Python Music Player")
+        panel = MediaPanel(self)
+
+#-------------------------------------------------------------------
+#Run this code
+if __name__ == "__main__":
+    app = wx.App(False)
+    frame = MediaFrame()
+    frame.Show()
+    app.MainLoop()
+
+
+
 
