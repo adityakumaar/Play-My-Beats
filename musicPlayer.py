@@ -1,252 +1,153 @@
-import os
-import wx
-import wx.media
-import wx.lib.buttons as buttons
+from mutagen.easyid3 import EasyID3
+import pygame
+from tkinter.filedialog import *
+from tkinter import *
 
-dirName = os.path.dirname(os.path.abspath(__file__))
-bitmapDir = os.path.join(dirName, 'bitmaps')
-
-#################################################
-
-class MediaPanel(wx.Panel):
-
-#-----------------------------------------------
-
-    def __init__(self, parent):
-        wx.Panel.__init__(self, parent = parent)
-
-        self.frame = parent
-        self.currentVolume = 50
-        self.createMenu()
-        self.layoutControls()
-
-        sp = wx.StandardPaths.Get()
-        self.currentFolder = sp.GetDocumentsDir()
-
-        self.timer = wx.Timer(self)
-        self.Bind(wx.EVT_TIMER, self.onTimer)
-        self.timer.Start(100)
-
-#-----------------------------------------------
-
-    def layoutControls(self):
-
-        try:
-            self.mediaPlayer = wx.media.MediaCtrl(self, style = wx.SIMPLE_BORDER)
-        except NotImplementedError:
-            self.Destroy()
-            raise
-
-        #create a playback slider
-        self.playbackSlider = wx.Slider(self, size = wx.DefaultSize)
-
-        self.Bind(wx.EVT_SLIDER, self.onSeek, self.playbackSlider)
-
-        self.volumeCtrl = wx.Slider(self, style = wx.SL_VERTICAL | wx.SL_INVERSE)
-        self.volumeCtrl = wx.SetRange(0, 100)
-        self.volumeCtrl.SetValue(self.currentVolume)
-        self.Bind(wx.EVT_SLIDER, self.onSetVolume)
-
-        #create sizers
-        mainSizer = wx.BoxSizer(wx.VERTICAL)
-        hSizer = wx.BoxSizer(wx.HORIZONTAL)
-        audioSizer = self.buildAudioBar()
-
-        #layout widgets
-        mainSizer.Add(self.playbackSlider, 1, wx.ALL | wx.EXPAND, 5)
-        hSizer.Add(audioSizer, 0, wx.ALL | wx.CENTER, 5)
-        mainSizer.Add(hSizer)
-
-        self.hSizer(mainSizer)
-        self.Layout()
-
-#------------------------------------------------
-
-        def buildAudioBar(self):
-            """Building the audio bar control"""
-            audioBarSizer = wx.BoxSizer(wx.HORIZONTAL)
-            self.buildBtn({'bitmap':"player_prev.png", 'handler':self.onPrev, 'name':'prev'}, audioBarSizer)
-            #self.buildBtn({'bitmap': 'player_prev.png', 'handler': self.onPrev, 'name': 'prev'}, audioBarSizer)
-            #create play/pause toggle button
-            img = wx.Bitmap(os.path.join(bitmapDir, "player_play.png"))
-            self.playPauseBtn = buttons.GenBitmapToggleButton(self, bitmap = img, name = "play")
-            self.playPauseBtn.Enable(False)
-
-            img = wx.Bitmap(os.path.join(bitmapDir, "player_pause.png"))
-            self.playPauseBtn.SetBitmapSelected(img)
-            self.playPauseBtn.SetInitialSize()
-
-            self.playPauseBtn.Bind(wx.EVT_BUTTON, self.onPlay)
-            audioBarSizer.Add(self.playPauseBtn, 0, wx.LEFT, 3)
-
-            btnData = [{'bitmap': 'player_stop.png',
-                        'handler': self.onStop,
-                        'name': 'stop'},
-                       {'bitmap': 'player_next.png',
-                        'handler': self.onNext,
-                        'name': 'next'}]
-            for btn in btnData:
-                self.buildBtn(btn, audioBarSizer)
-            return audioBarSizer
-
-#--------------------------------------------------------------------
-
-        def buildBtn(self, btnDict, sizer):
-            bmp = btnDict['bitmap']
-            handler = btnDict['handler']
-
-            img = wx.Bitmap(os.path.join(bitmapDir, bmp))
-            btn = buttons.GenBitmaoButton(self, bitmap = img, name = btnDict['name'])
-            btn.SetInitialSize()
-            btn.Bind(wx.EVT_BUTTON, handler)
-            sizer.Add(btn, 0, wx.LEFT, 3)
-
-#---------------------------------------------------------------------
-
-        def createMenu(self):
-            """creates a menu"""
-            menubar = wx.MenuBar()
-
-            fileMenu = wx.Menu()
-            open_file_menu_item = fileMenu.Append(wx.NewId(), "&Open", "Open a File")
-            menubar.Append(fileMenu, '&File')
-            self.frame.SetMenuBar(menubar)
-            self.frame.Bind(wx.EVT_MENU, self.onBrowsw, open_file_menu_item)
-
-#----------------------------------------------------------------------
-
-        def loadMusic(self, musicFile):
-            """
-            load the music in the MediaCtrl od display an error dialog
-            if the user tries to load an unsupported file type
-            """
-            if not self.mediaPlayer.Load(musicFile):
-                wx.MessageBox("Unable to load %s: Unsupported format" %musicFile,
-                              "ERROR", wx.ICON_ERROR | wx.OK)
-            else:
-                self.mediaPlayer.SetInitialSize()
-                self.GetSizer().Layout()
-                self.playbackSlider.SetRange(0, self.mediaPlayer.Length())
-                self.playPauseBtn.Enable(True)
-
-#------------------------------------------------------------------
-
-        def onBrowse(self, event):
-            """
-            Opens a file dialog to browse for music
-            """
-            wildcard = "MP3 (*.mp3)|*.mp3|"\
-                       "WAV (*.wav)|*.wav"
-            dlg = wx.FileDialog(
-                self, message = "Choose a File",
-                defaultDir=self.currentFolder,
-                defaultFile="",
-                wildcard=wildcard,
-                style = wx.OPEN | wx.CHANGE_DIR
-                )
-            if dlg.ShowModal() == wx.ID_OK:
-                path = dlg.GetPath()
-                self.currentFolder = os.path.dirname(path)
-                self.loadMusic(path)
-            dlg.Destroy()
-
-#-------------------------------------------------------------------
-
-        def onNext(self, event):
-            """
-            Not implemented
-            """
-            pass
-
-#-------------------------------------------------------------------
-
-        def onPause(self):
-            """
-            Pauses the music
-            """
-            self.mediaPlayer.Pause()
-
-#-------------------------------------------------------------------
-
-        def onPlay(self, event):
-            """
-            Plays the music
-            """
-            if not event.GetIsDown():
-                self.onPause()
-                return
-
-            if not self.mediaPlayer.Play():
-                wx.MessageBox("Unable to Play media : Unsupported format",
-                              "ERROR",
-                              wx.ICON_ERROR | wx.OK)
-            else:
-                self.mediaPlayer.SetInitialSize()
-                self.GetSizer().Layout()
-                self.playbackSlider.SetRange(0, self.mediaPlayer.Length())
-            event.Skip()
-
-#-------------------------------------------------------------------
-
-        def onPrev(self, event):
-            """
-            Not implemented
-            """
-            pass
-
-#-------------------------------------------------------------------
-
-        def onSeek(self, event):
-            """
-            Seeks the media file according to the amount the slider has been adjusted.
-            """
-            offset = self.playbackSlider.GetValue()
-            self.mediaPlayer.Seek(offset)
-
-#-------------------------------------------------------------------
-
-        def onSetVolume(self, event):
-            """
-            Sets the volume of the music player
-            """
-            self.currentVolume = self.volumeCtrl.GetValue()
-            print("Setting volume to %s" %int(self.currentVolume))
-            self.mediaPlayer.setVolume(self.currentColume)
-
-#-------------------------------------------------------------------
-
-        def onStop(self, event):
-            """
-            stops the music and resets the play button
-            """
-            self.mediaPlayer.Stop()
-            self.playPauseBtn.SetToggle(False)
-
-#-------------------------------------------------------------------
-
-        def onTimer(self, event):
-            """
-            Keeps the player slider updated
-            """
-            offset = self.mediaPlayer.Tell()
-            self.playbackSlider.SetValue(offset)
-
-####################################################################
-
-class MediaFrame(wx.Frame):
-
-    def __init__(self):
-        wx.Frame.__init__(self, None, wx.ID_ANY, "Python Music Player")
-        panel = MediaPanel(self)
-
-#-------------------------------------------------------------------
-#Run this code
-if __name__ == "__main__":
-    app = wx.App(False)
-    frame = MediaFrame()
-    frame.Show()
-    app.MainLoop()
+pygame.init()
 
 
+class FrameApp(Frame):
+    def __init__(self,master):
+        super(FrameApp, self).__init__(master)
+
+        self.grid()
+        self.paused = False
+        self.playlist = list()
+        self.actual_song = 0
+
+        self.b1 = Button(self, text="play", command=self.play_music, width=20)
+        self.b1.grid(row=1, column=0)
+
+        self.b2 = Button(self, text="previous", command=self.previous_song,
+                         width=20)
+        self.b2.grid(row=2, column=0)
+
+        self.b3 = Button(self, text="toggle", command=self.toggle, width=20)
+        self.b3.grid(row=3, column=0)
+
+        self.b4 = Button(self, text="next", command=self.next_song, width=20)
+        self.b4.grid(row=4, column=0)
+
+        self.b5 = Button(self, text="add to list", command=self.add_to_list,
+                         width=20)
+        self.b5.grid(row=5, column=0)
+
+        self.label1 = Label(self)
+        self.label1.grid(row=6, column=0)
+
+        self.output = Text(self, wrap=WORD, width=50)
+        self.output.grid(row=8, column=0)
+
+        # set event to not predefined value in pygame
+        self.SONG_END = pygame.USEREVENT + 1
+
+        # TODO: Make progressbar, delete songs from playlist, amplify volume
+
+    def add_to_list(self):
+        """
+        Opens window to browse data on disk and adds selected songs to play list
+        :return: None
+        """
+        directory = askopenfilenames()
+        # appends song directory on disk to playlist in memory
+        for song_dir in directory:
+            print(song_dir)
+            self.playlist.append(song_dir)
+        self.output.delete(0.0, END)
+
+        for key, item in enumerate(self.playlist):
+            # appends song to textbox
+            song = EasyID3(item)
+            song_data = (str(key + 1) + ' : ' + song['title'][0] + ' - '
+                         + song['artist'][0])
+            self.output.insert(END, song_data + '\n')
+
+    def song_data(self):
+        """
+        Makes string of current playing song data over the text box
+        :return: string - current song data
+        """
+        song = EasyID3(self.playlist[self.actual_song])
+        song_data = "Now playing: Nr:" + str(self.actual_song + 1) + " " + \
+                    str(song['title']) + " - " + str(song['artist'])
+        return song_data
+
+    def play_music(self):
+        """
+        Loads current song, plays it, sets event on song finish
+        :return: None
+        """
+        directory = self.playlist[self.actual_song]
+        pygame.mixer.music.load(directory)
+        pygame.mixer.music.play(1, 0.0)
+        pygame.mixer.music.set_endevent(self.SONG_END)
+        self.paused = False
+        self.label1['text'] = self.song_data()
+
+    def check_music(self):
+        """
+        Listens to END_MUSIC event and triggers next song to play if current 
+        song has finished
+        :return: None
+        """
+        for event in pygame.event.get():
+            if event.type == self.SONG_END:
+                self.next_song()
+
+    def toggle(self):
+        """
+        Toggles current song
+        :return: None
+        """
+        if self.paused:
+            pygame.mixer.music.unpause()
+            self.paused = False
+        elif not self.paused:
+            pygame.mixer.music.pause()
+            self.paused = True
+
+    def get_next_song(self):
+        """
+        Gets next song number on playlist
+        :return: int - next song number
+        """
+        if self.actual_song + 2 <= len(self.playlist):
+            return self.actual_song + 1
+        else:
+            return 0
+
+    def next_song(self):
+        """
+        Plays next song
+        :return: None
+        """
+        self.actual_song = self.get_next_song()
+        self.play_music()
+
+    def get_previous_song(self):
+        """
+        Gets previous song number on playlist and returns it
+        :return: int - prevoius song number on playlist
+        """
+        if self.actual_song - 1 >= 0:
+            return self.actual_song - 1
+        else:
+            return len(self.playlist) - 1
+
+    def previous_song(self):
+        """
+        Plays prevoius song
+        :return: 
+        """
+        self.actual_song = self.get_previous_song()
+        self.play_music()
 
 
+root = Tk()
+root.geometry("350x500")
+app = FrameApp(root)
+
+while True:
+    # runs mainloop of program
+    app.check_music()
+    app.update()
